@@ -4,11 +4,15 @@ import { ClubComparison } from "./components/ClubComparison";
 import { ClubSelector } from "./components/ClubSelector";
 import { CourseMap } from "./components/CourseMap";
 import { DistanceDistribution } from "./components/DistanceDistribution";
+import { Recommendation } from "./components/Recommendation";
 import { ShotList } from "./components/ShotList";
 import { ShotScatter } from "./components/ShotScatter";
 import { StatsPanel } from "./components/StatsPanel";
 import { useRound } from "./hooks/useRound";
+import { RuleBasedEngine } from "./lib/recommendation";
 import { calculateClubStats, groupDistancesByClub } from "./lib/statistics";
+
+const recommendationEngine = new RuleBasedEngine();
 
 function App() {
 	const { round, selectedClub, selectClub, recordShot, undoLastShot, startRound } = useRound();
@@ -23,6 +27,16 @@ function App() {
 	const stats = useMemo(() => (round ? calculateClubStats(round.shots) : []), [round]);
 
 	const distancesByClub = useMemo(() => (round ? groupDistancesByClub(round.shots) : new Map()), [round]);
+
+	// クラブ推薦: ターゲットはモックコースのピン位置 (lat: 75, lng: 370)
+	const recommendations = useMemo(() => {
+		if (!round || round.shots.length === 0) return [];
+		const lastShot = round.shots[round.shots.length - 1];
+		if (!lastShot) return [];
+		const currentPos = lastShot.landingPosition;
+		const targetPos = { lat: 75, lng: 370 }; // モックコースのピン位置
+		return recommendationEngine.recommend(currentPos, targetPos, [], round.shots, 0);
+	}, [round]);
 
 	return (
 		<StrictMode>
@@ -77,6 +91,8 @@ function App() {
 						<ClubSelector selectedClub={selectedClub} onSelect={selectClub} />
 
 						<ShotList shots={round.shots} onUndo={undoLastShot} />
+
+						{recommendations.length > 0 && <Recommendation recommendations={recommendations} isGenericMode={true} />}
 
 						{round.shots.length > 0 && (
 							<>
