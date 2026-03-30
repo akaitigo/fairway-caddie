@@ -1,18 +1,28 @@
-import { StrictMode, useState } from "react";
+import { StrictMode, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { ClubComparison } from "./components/ClubComparison";
 import { ClubSelector } from "./components/ClubSelector";
 import { CourseMap } from "./components/CourseMap";
+import { DistanceDistribution } from "./components/DistanceDistribution";
 import { ShotList } from "./components/ShotList";
+import { ShotScatter } from "./components/ShotScatter";
+import { StatsPanel } from "./components/StatsPanel";
 import { useRound } from "./hooks/useRound";
+import { calculateClubStats, groupDistancesByClub } from "./lib/statistics";
 
 function App() {
 	const { round, selectedClub, selectClub, recordShot, undoLastShot, startRound } = useRound();
 	const [error, setError] = useState<string | null>(null);
+	const [showStats, setShowStats] = useState(false);
 
 	const handleStartRound = () => {
 		startRound("mock-course-001");
 		setError(null);
 	};
+
+	const stats = useMemo(() => (round ? calculateClubStats(round.shots) : []), [round]);
+
+	const distancesByClub = useMemo(() => (round ? groupDistancesByClub(round.shots) : new Map()), [round]);
 
 	return (
 		<StrictMode>
@@ -67,6 +77,38 @@ function App() {
 						<ClubSelector selectedClub={selectedClub} onSelect={selectClub} />
 
 						<ShotList shots={round.shots} onUndo={undoLastShot} />
+
+						{round.shots.length > 0 && (
+							<>
+								<button
+									type="button"
+									onClick={() => setShowStats((prev) => !prev)}
+									style={{
+										padding: "8px 16px",
+										fontSize: "14px",
+										backgroundColor: "#f3f4f6",
+										color: "#1f2937",
+										border: "1px solid #d1d5db",
+										borderRadius: "6px",
+										cursor: "pointer",
+										margin: "12px 0",
+									}}
+								>
+									{showStats ? "統計を閉じる" : "統計を表示"}
+								</button>
+
+								{showStats && (
+									<div>
+										<StatsPanel stats={stats} />
+										<ClubComparison stats={stats} />
+										<ShotScatter shots={round.shots} />
+										{[...distancesByClub.entries()].map(([club, distances]) => (
+											<DistanceDistribution key={club} distances={distances} clubName={club} />
+										))}
+									</div>
+								)}
+							</>
+						)}
 					</>
 				)}
 			</div>
