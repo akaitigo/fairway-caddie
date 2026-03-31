@@ -39,7 +39,7 @@ export function StatsPanel({ stats }: StatsPanelProps) {
 	}
 
 	return (
-		<div aria-label="統計パネル" style={{ padding: "12px" }}>
+		<section aria-label="統計パネル" style={{ padding: "12px" }}>
 			<h3 style={{ fontSize: "16px", marginBottom: "12px" }}>クラブ別統計</h3>
 			<div
 				style={{
@@ -87,6 +87,6 @@ export function StatsPanel({ stats }: StatsPanelProps) {
 					</div>
 				))}
 			</div>
-		</div>
+		</section>
 	);
 }

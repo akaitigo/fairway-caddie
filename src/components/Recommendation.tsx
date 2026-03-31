@@ -48,7 +48,7 @@ export function Recommendation({ recommendations, isGenericMode }: Recommendatio
 	}
 
 	return (
-		<div aria-label="クラブ推薦" style={{ padding: "12px" }}>
+		<section aria-label="クラブ推薦" style={{ padding: "12px" }}>
 			<h3 style={{ fontSize: "16px", marginBottom: "8px" }}>クラブ推薦</h3>
 			{isGenericMode && (
 				<div
@@ -147,6 +147,6 @@ export function Recommendation({ recommendations, isGenericMode }: Recommendatio
 					</div>
 				))}
 			</div>
-		</div>
+		</section>
 	);
 }
