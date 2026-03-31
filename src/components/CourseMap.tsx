@@ -25,7 +25,7 @@ const DEBOUNCE_MS = 300;
 
 export function CourseMap({ shots, onTap, disabled = false }: CourseMapProps) {
 	const svgRef = useRef<SVGSVGElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
+	const containerRef = useRef<HTMLElement>(null);
 	const [dimensions, setDimensions] = useState({ width: 600, height: 300 });
 
 	// レスポンシブ対応: リサイズ監視
@@ -192,7 +192,7 @@ export function CourseMap({ shots, onTap, disabled = false }: CourseMapProps) {
 	);
 
 	return (
-		<div
+		<section
 			ref={containerRef}
 			aria-label="コースマップ"
 			style={{
@@ -228,6 +228,6 @@ export function CourseMap({ shots, onTap, disabled = false }: CourseMapProps) {
 					padding: 0,
 				}}
 			/>
-		</div>
+		</section>
 	);
 }

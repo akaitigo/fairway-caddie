@@ -41,14 +41,14 @@ function formatTime(timestamp: string): string {
 export function ShotList({ shots, onUndo }: ShotListProps) {
 	if (shots.length === 0) {
 		return (
-			<div style={{ padding: "16px", textAlign: "center", color: "#6b7280" }} aria-label="ショット一覧">
+			<section style={{ padding: "16px", textAlign: "center", color: "#6b7280" }} aria-label="ショット一覧">
 				ショットが記録されていません。マップをタップしてショットを記録してください。
-			</div>
+			</section>
 		);
 	}
 
 	return (
-		<div aria-label="ショット一覧">
+		<section aria-label="ショット一覧">
 			<div
 				style={{
 					display: "flex",
@@ -103,6 +103,6 @@ export function ShotList({ shots, onUndo }: ShotListProps) {
 					</li>
 				))}
 			</ul>
-		</div>
+		</section>
 	);
 }

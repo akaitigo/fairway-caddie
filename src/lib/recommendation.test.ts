@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Hazard } from "../types/course";
 import type { Coordinate, Shot } from "../types/shot";
-import { RuleBasedEngine } from "./recommendation";
 import type { ClubRecommendation } from "./recommendation";
+import { RuleBasedEngine } from "./recommendation";
 
 function createShot(overrides: Partial<Shot> & Pick<Shot, "club" | "distanceYards">): Shot {
 	return {
