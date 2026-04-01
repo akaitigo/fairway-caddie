@@ -10,8 +10,8 @@ function createShot(overrides: Partial<Shot> & Pick<Shot, "club" | "distanceYard
 		roundId: "round-1",
 		holeNumber: 1,
 		shotNumber: 1,
-		position: { lat: 35.0, lng: 139.0 },
-		landingPosition: { lat: 35.001, lng: 139.001 },
+		position: { lat: 75, lng: 0 },
+		landingPosition: { lat: 75, lng: 140 },
 		timestamp: "2026-01-01T00:00:00Z",
 		...overrides,
 	};
@@ -20,9 +20,9 @@ function createShot(overrides: Partial<Shot> & Pick<Shot, "club" | "distanceYard
 describe("RuleBasedEngine", () => {
 	const engine = new RuleBasedEngine();
 
-	const teePosition: Coordinate = { lat: 35.0, lng: 139.0 };
-	// ターゲットはティーから約230ヤード先 (ドライバー距離)
-	const targetPosition: Coordinate = { lat: 35.0019, lng: 139.0 };
+	// ヤード座標系: ティー位置 (75, 0), ターゲット (75, 230) → 距離230yd
+	const teePosition: Coordinate = { lat: 75, lng: 0 };
+	const targetPosition: Coordinate = { lat: 75, lng: 230 };
 
 	describe("コールドスタート (ジェネリック推薦)", () => {
 		it("5ラウンド未満ではジェネリック推薦を返す", () => {
@@ -73,8 +73,8 @@ describe("RuleBasedEngine", () => {
 				createShot({ id: "s4", club: "7i", distanceYards: 142 }),
 				createShot({ id: "s5", club: "7i", distanceYards: 138 }),
 			];
-			// ターゲットを7I距離(≈140yd)に設定
-			const shortTarget: Coordinate = { lat: 35.00117, lng: 139.0 };
+			// ターゲットを7I距離(=140yd)に設定
+			const shortTarget: Coordinate = { lat: 75, lng: 140 };
 			const recommendations = engine.recommend(teePosition, shortTarget, [], shots, 5);
 			const sevenIron = recommendations.find((r) => r.club === "7i");
 			if (sevenIron) {
@@ -101,19 +101,28 @@ describe("RuleBasedEngine", () => {
 			}
 		});
 
-		it("ハザードがある場合はリスクが正の値", () => {
+		it("ハザードがある場合はリスクが期待値を下げる", () => {
+			// ハザードをドライバー平均飛距離(230yd)付近に配置
 			const hazards: Hazard[] = [
 				{
 					id: "h1",
 					type: "water",
-					position: { lat: 35.0015, lng: 139.0 },
-					radiusYards: 20,
+					position: { lat: 75, lng: 230 },
+					radiusYards: 30,
 				},
 			];
-			const recommendations = engine.recommend(teePosition, targetPosition, hazards, [], 0);
-			// 少なくとも1つのクラブがハザードリスクを持つ
-			const hasRisk = recommendations.some((r) => r.hazardRisk > 0);
-			expect(hasRisk).toBe(true);
+			const withHazards = engine.recommend(teePosition, targetPosition, hazards, [], 0);
+			const withoutHazards = engine.recommend(teePosition, targetPosition, [], [], 0);
+
+			// ハザードありの方が上位クラブの期待値が低い（上位がリスク回避クラブに入替わる）
+			const topWithHazards = withHazards[0];
+			const topWithoutHazards = withoutHazards[0];
+			expect(topWithHazards).toBeDefined();
+			expect(topWithoutHazards).toBeDefined();
+			if (topWithHazards && topWithoutHazards) {
+				// ハザードありではドライバーが推薦されなくなり、異なるクラブが選ばれる
+				expect(topWithHazards.club).not.toBe(topWithoutHazards.club);
+			}
 		});
 
 		it("ハザードリスクが期待値を下げる", () => {
@@ -122,7 +131,7 @@ describe("RuleBasedEngine", () => {
 				{
 					id: "h1",
 					type: "water",
-					position: { lat: 35.0015, lng: 139.0 },
+					position: { lat: 75, lng: 200 },
 					radiusYards: 30,
 				},
 			];
@@ -142,7 +151,7 @@ describe("RuleBasedEngine", () => {
 				{
 					id: "h1",
 					type: "water",
-					position: { lat: 35.0015, lng: 139.0 },
+					position: { lat: 75, lng: 200 },
 					radiusYards: 20,
 				},
 			];
@@ -150,7 +159,7 @@ describe("RuleBasedEngine", () => {
 				{
 					id: "h1",
 					type: "ob",
-					position: { lat: 35.0015, lng: 139.0 },
+					position: { lat: 75, lng: 200 },
 					radiusYards: 20,
 				},
 			];
@@ -177,7 +186,7 @@ describe("RuleBasedEngine", () => {
 		});
 
 		it("平均飛距離がターゲットに近いクラブほどフェアウェイキープ率が高い", () => {
-			// ターゲット ≈ 230yd → ドライバー(mean=230)が最もキープ率が高いはず
+			// ターゲット = 230yd → ドライバー(mean=230)が最もキープ率が高いはず
 			const allRecs = engine.recommend(teePosition, targetPosition, [], [], 0);
 			const topRec = allRecs[0];
 			expect(topRec).toBeDefined();
@@ -215,7 +224,7 @@ describe("RuleBasedEngine", () => {
 			const hazards: Hazard[] = Array.from({ length: 50 }, (_, i) => ({
 				id: `h${i}`,
 				type: "bunker" as const,
-				position: { lat: 35.0 + i * 0.0001, lng: 139.0 },
+				position: { lat: 75, lng: i * 8 },
 				radiusYards: 10,
 			}));
 			const recommendations = engine.recommend(teePosition, targetPosition, hazards, [], 0);

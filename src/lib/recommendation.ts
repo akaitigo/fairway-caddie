@@ -10,6 +10,7 @@
 import type { ClubType } from "../types/club";
 import type { Hazard } from "../types/course";
 import type { Coordinate, Shot } from "../types/shot";
+import { euclideanDistanceYards } from "../types/shot";
 import { mean, normalCdf, stdDev } from "./statistics";
 
 /** ハザード種別ごとのペナルティコスト */
@@ -40,19 +41,6 @@ const GENERIC_STATS: ReadonlyMap<ClubType, { mean: number; stdDev: number }> = n
 	["lw", { mean: 60, stdDev: 5 }],
 	["putter", { mean: 10, stdDev: 3 }],
 ]);
-
-/** 2点間の距離 (ヤード, Haversine) */
-function distanceYards(from: Coordinate, to: Coordinate): number {
-	const R = 6371000;
-	const toRad = (deg: number) => (deg * Math.PI) / 180;
-	const dLat = toRad(to.lat - from.lat);
-	const dLng = toRad(to.lng - from.lng);
-	const a =
-		Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-		Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-	return R * c * 1.09361;
-}
 
 /** 推薦結果 */
 export interface ClubRecommendation {
@@ -92,7 +80,7 @@ function calculateFairwayRate(targetDistance: number, clubMean: number, clubStdD
 	return upper - lower;
 }
 
-/** ハザード到達確率を計算 */
+/** ハザード到達確率を計算 (ユークリッド距離) */
 function calculateHazardRisk(
 	currentPosition: Coordinate,
 	hazards: readonly Hazard[],
@@ -104,7 +92,7 @@ function calculateHazardRisk(
 
 	let totalRisk = 0;
 	for (const hazard of hazards) {
-		const hazardDistance = distanceYards(currentPosition, hazard.position);
+		const hazardDistance = euclideanDistanceYards(currentPosition, hazard.position);
 		const hazardNear = hazardDistance - hazard.radiusYards;
 		const hazardFar = hazardDistance + hazard.radiusYards;
 
@@ -133,7 +121,7 @@ export class RuleBasedEngine implements RecommendationEngine {
 		shots: readonly Shot[],
 		roundCount: number,
 	): readonly ClubRecommendation[] {
-		const targetDistance = distanceYards(currentPosition, targetPosition);
+		const targetDistance = euclideanDistanceYards(currentPosition, targetPosition);
 		const isGeneric = roundCount < this.coldStartThreshold;
 		const tolerance = 15; // ターゲットからの許容誤差 (ヤード)
 

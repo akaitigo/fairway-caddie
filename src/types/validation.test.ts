@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isClubType, validateClubName } from "./club";
 import { isHazardType } from "./course";
 import { validateRoundDate } from "./round";
-import { validateCoordinate, validateDistance } from "./shot";
+import { euclideanDistanceYards, validateCoordinate, validateDistance } from "./shot";
 
 describe("validateClubName", () => {
 	it("正常なクラブ名はnullを返す", () => {
@@ -40,24 +40,45 @@ describe("isClubType", () => {
 	});
 });
 
-describe("validateCoordinate", () => {
-	it("有効な座標はnullを返す", () => {
-		expect(validateCoordinate({ lat: 35.6812, lng: 139.7671 })).toBeNull();
+describe("validateCoordinate (ヤード座標系)", () => {
+	it("有効なヤード座標はnullを返す", () => {
+		expect(validateCoordinate({ lat: 75, lng: 200 })).toBeNull();
 	});
 
-	it("緯度が範囲外の場合はエラーを返す", () => {
-		expect(validateCoordinate({ lat: 91, lng: 0 })).not.toBeNull();
-		expect(validateCoordinate({ lat: -91, lng: 0 })).not.toBeNull();
+	it("縦位置が範囲外の場合はエラーを返す", () => {
+		expect(validateCoordinate({ lat: 151, lng: 0 })).not.toBeNull();
+		expect(validateCoordinate({ lat: -1, lng: 0 })).not.toBeNull();
 	});
 
-	it("経度が範囲外の場合はエラーを返す", () => {
-		expect(validateCoordinate({ lat: 0, lng: 181 })).not.toBeNull();
-		expect(validateCoordinate({ lat: 0, lng: -181 })).not.toBeNull();
+	it("横位置が範囲外の場合はエラーを返す", () => {
+		expect(validateCoordinate({ lat: 0, lng: 401 })).not.toBeNull();
+		expect(validateCoordinate({ lat: 0, lng: -1 })).not.toBeNull();
 	});
 
 	it("境界値はnullを返す", () => {
-		expect(validateCoordinate({ lat: 90, lng: 180 })).toBeNull();
-		expect(validateCoordinate({ lat: -90, lng: -180 })).toBeNull();
+		expect(validateCoordinate({ lat: 150, lng: 400 })).toBeNull();
+		expect(validateCoordinate({ lat: 0, lng: 0 })).toBeNull();
+	});
+});
+
+describe("euclideanDistanceYards", () => {
+	it("同一地点の距離は0", () => {
+		expect(euclideanDistanceYards({ lat: 75, lng: 0 }, { lat: 75, lng: 0 })).toBe(0);
+	});
+
+	it("水平方向の距離を正しく計算する", () => {
+		const d = euclideanDistanceYards({ lat: 75, lng: 0 }, { lat: 75, lng: 200 });
+		expect(d).toBeCloseTo(200, 5);
+	});
+
+	it("垂直方向の距離を正しく計算する", () => {
+		const d = euclideanDistanceYards({ lat: 0, lng: 100 }, { lat: 100, lng: 100 });
+		expect(d).toBeCloseTo(100, 5);
+	});
+
+	it("斜め方向の距離をピタゴラスの定理で計算する", () => {
+		const d = euclideanDistanceYards({ lat: 0, lng: 0 }, { lat: 30, lng: 40 });
+		expect(d).toBeCloseTo(50, 5);
 	});
 });
 

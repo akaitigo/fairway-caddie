@@ -10,25 +10,10 @@ import { LocalStorageAdapter } from "../lib/storage";
 import type { ClubType } from "../types/club";
 import type { Round } from "../types/round";
 import type { Coordinate, Shot } from "../types/shot";
-import { validateCoordinate, validateDistance } from "../types/shot";
+import { euclideanDistanceYards, validateCoordinate, validateDistance } from "../types/shot";
 
 const storage = new LocalStorageAdapter();
 const ROUNDS_KEY = "rounds";
-
-/** 座標間の距離をヤードで計算 (Haversine formula) */
-function calculateDistanceYards(from: Coordinate, to: Coordinate): number {
-	const R = 6371000; // 地球の半径 (メートル)
-	const toRad = (deg: number) => (deg * Math.PI) / 180;
-
-	const dLat = toRad(to.lat - from.lat);
-	const dLng = toRad(to.lng - from.lng);
-	const a =
-		Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-		Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-	const meters = R * c;
-	return meters * 1.09361; // メートル → ヤード
-}
 
 /** ユニークIDを生成 */
 function generateId(): string {
@@ -80,8 +65,8 @@ export function useRound(): UseRoundReturn {
 
 			const shotNumber = round.shots.filter((s) => s.holeNumber === currentHole).length + 1;
 
-			// 飛距離: 前のショットの着弾位置から計算、なければ0
-			const distanceYards = lastShotPosition ? calculateDistanceYards(lastShotPosition, position) : 0;
+			// 飛距離: 前のショットの着弾位置からユークリッド距離で計算、なければ0
+			const distanceYards = lastShotPosition ? euclideanDistanceYards(lastShotPosition, position) : 0;
 
 			const distanceError = validateDistance(distanceYards);
 			if (distanceError) return distanceError;
