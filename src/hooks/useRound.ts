@@ -23,7 +23,6 @@ function generateId(): string {
 export interface UseRoundReturn {
 	readonly round: Round | null;
 	readonly selectedClub: ClubType | null;
-	readonly lastShotPosition: Coordinate | null;
 	readonly selectClub: (club: ClubType) => void;
 	readonly recordShot: (position: Coordinate) => string | null;
 	readonly undoLastShot: () => void;
@@ -121,7 +120,6 @@ export function useRound(): UseRoundReturn {
 	return {
 		round,
 		selectedClub,
-		lastShotPosition,
 		selectClub,
 		recordShot,
 		undoLastShot,
