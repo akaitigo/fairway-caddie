@@ -13,9 +13,16 @@ import { useRound } from "./hooks/useRound";
 import { getCourseById, listCourses } from "./lib/courses";
 import { RuleBasedEngine } from "./lib/recommendation";
 import { calculateClubStats, groupDistancesByClub } from "./lib/statistics";
+import { LocalStorageAdapter } from "./lib/storage";
 import type { Hazard } from "./types/course";
+import type { Round } from "./types/round";
 
 const recommendationEngine = new RuleBasedEngine();
+const storage = new LocalStorageAdapter();
+const ROUNDS_KEY = "rounds";
+
+/** コールドスタート閾値 (ラウンド数) — RuleBasedEngine と同じ値 */
+const COLD_START_THRESHOLD = 5;
 
 /** デフォルトのコースID */
 const DEFAULT_COURSE_ID = "mock-course-001";
@@ -63,6 +70,16 @@ function App() {
 
 	const distancesByClub = useMemo(() => (round ? groupDistancesByClub(round.shots) : new Map()), [round]);
 
+	// ストレージから過去ラウンド数を取得してコールドスタート判定
+	// isRoundEnded をトリガーにしてラウンド終了後にストレージを再読込する
+	// biome-ignore lint/correctness/useExhaustiveDependencies: isRoundEnded is an intentional trigger to re-read storage after endRound persists data
+	const roundCount = useMemo(() => {
+		const result = storage.getAll<Round>(ROUNDS_KEY);
+		return result.ok ? result.data.length : 0;
+	}, [isRoundEnded]);
+
+	const isGenericMode = roundCount < COLD_START_THRESHOLD;
+
 	// クラブ推薦: ターゲット位置をコースデータから動的に取得
 	const recommendations = useMemo(() => {
 		if (!round || round.shots.length === 0 || !currentHole) return [];
@@ -71,8 +88,8 @@ function App() {
 		const currentPos = lastShot.landingPosition;
 		const targetPos = currentHole.pinPosition;
 		const hazards: readonly Hazard[] = currentHole.hazards;
-		return recommendationEngine.recommend(currentPos, targetPos, hazards, round.shots, 0);
-	}, [round, currentHole]);
+		return recommendationEngine.recommend(currentPos, targetPos, hazards, round.shots, roundCount);
+	}, [round, currentHole, roundCount]);
 
 	return (
 		<StrictMode>
@@ -201,7 +218,9 @@ function App() {
 
 						<ShotList shots={round.shots} onUndo={undoLastShot} />
 
-						{recommendations.length > 0 && <Recommendation recommendations={recommendations} isGenericMode={true} />}
+						{recommendations.length > 0 && (
+							<Recommendation recommendations={recommendations} isGenericMode={isGenericMode} />
+						)}
 
 						{round.shots.length > 0 && (
 							<>
