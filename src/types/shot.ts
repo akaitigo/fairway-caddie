@@ -1,10 +1,10 @@
 import type { ClubType } from "./club";
 
-/** WGS84 座標 (EPSG:4326) */
+/** コースマップ上のヤード座標 (横方向: lng, 縦方向: lat) */
 export interface Coordinate {
-	/** 緯度 (-90.0 ~ 90.0) */
+	/** 縦位置 (ヤード, 0 ~ 150) */
 	readonly lat: number;
-	/** 経度 (-180.0 ~ 180.0) */
+	/** 横位置 (ヤード, 0 ~ 400) */
 	readonly lng: number;
 }
 
@@ -22,15 +22,22 @@ export interface Shot {
 	readonly timestamp: string;
 }
 
-/** 座標バリデーション */
+/** 座標バリデーション (ヤード座標系) */
 export function validateCoordinate(coord: Coordinate): string | null {
-	if (coord.lat < -90 || coord.lat > 90) {
-		return "緯度は-90~90の範囲で指定してください";
+	if (coord.lat < 0 || coord.lat > 150) {
+		return "縦位置は0~150ヤードの範囲で指定してください";
 	}
-	if (coord.lng < -180 || coord.lng > 180) {
-		return "経度は-180~180の範囲で指定してください";
+	if (coord.lng < 0 || coord.lng > 400) {
+		return "横位置は0~400ヤードの範囲で指定してください";
 	}
 	return null;
+}
+
+/** 2点間のユークリッド距離 (ヤード) */
+export function euclideanDistanceYards(from: Coordinate, to: Coordinate): number {
+	const dx = to.lng - from.lng;
+	const dy = to.lat - from.lat;
+	return Math.sqrt(dx * dx + dy * dy);
 }
 
 /** 飛距離バリデーション */
