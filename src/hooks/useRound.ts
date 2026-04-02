@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useState } from "react";
+import { getTeePosition } from "../lib/courses";
 import { LocalStorageAdapter } from "../lib/storage";
 import type { ClubType } from "../types/club";
 import type { Round } from "../types/round";
@@ -27,7 +28,7 @@ export interface UseRoundReturn {
 	readonly recordShot: (position: Coordinate) => string | null;
 	readonly undoLastShot: () => void;
 	readonly startRound: (courseId: string) => void;
-	readonly endRound: (totalScore: number) => void;
+	readonly endRound: (totalScore: number) => string | null;
 }
 
 export function useRound(): UseRoundReturn {
@@ -64,8 +65,16 @@ export function useRound(): UseRoundReturn {
 
 			const shotNumber = round.shots.filter((s) => s.holeNumber === currentHole).length + 1;
 
-			// 飛距離: 前のショットの着弾位置からユークリッド距離で計算、なければ0
-			const distanceYards = lastShotPosition ? euclideanDistanceYards(lastShotPosition, position) : 0;
+			// 飛距離: 前のショットの着弾位置からユークリッド距離で計算
+			// 最初のショットはティー位置から計算する
+			let origin = lastShotPosition;
+			if (!origin) {
+				const teePos = getTeePosition(round.courseId, currentHole);
+				if (teePos) {
+					origin = teePos;
+				}
+			}
+			const distanceYards = origin ? euclideanDistanceYards(origin, position) : 0;
 
 			const distanceError = validateDistance(distanceYards);
 			if (distanceError) return distanceError;
@@ -76,7 +85,7 @@ export function useRound(): UseRoundReturn {
 				holeNumber: currentHole,
 				shotNumber,
 				club: selectedClub,
-				position: lastShotPosition ?? position,
+				position: origin ?? position,
 				landingPosition: position,
 				distanceYards: Math.round(distanceYards),
 				timestamp: new Date().toISOString(),
@@ -104,15 +113,19 @@ export function useRound(): UseRoundReturn {
 	}, [round]);
 
 	const endRound = useCallback(
-		(totalScore: number) => {
-			if (!round) return;
+		(totalScore: number): string | null => {
+			if (!round) return "ラウンドが開始されていません";
 
 			const finalRound: Round = {
 				...round,
 				totalScore,
 			};
-			storage.save(ROUNDS_KEY, finalRound);
+			const result = storage.save(ROUNDS_KEY, finalRound);
+			if (!result.ok) {
+				return `ラウンドの保存に失敗しました: ${result.error}`;
+			}
 			setRound(finalRound);
+			return null;
 		},
 		[round],
 	);

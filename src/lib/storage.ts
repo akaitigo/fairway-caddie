@@ -44,7 +44,18 @@ export class LocalStorageAdapter implements StorageAdapter {
 		if (raw === null) {
 			return { ok: true, data: [] };
 		}
-		return safeParse<readonly T[]>(raw);
+		const result = safeParse<readonly T[]>(raw);
+		if (!result.ok) {
+			// 不正データをリセットして空配列を返す
+			localStorage.removeItem(this.buildKey(key));
+			return { ok: true, data: [] };
+		}
+		if (!Array.isArray(result.data)) {
+			// 配列でないデータをリセットして空配列を返す
+			localStorage.removeItem(this.buildKey(key));
+			return { ok: true, data: [] };
+		}
+		return result;
 	}
 
 	getById<T extends { id: string }>(key: string, id: string): StorageResult<T | null> {

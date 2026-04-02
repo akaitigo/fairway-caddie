@@ -57,10 +57,34 @@ describe("LocalStorageAdapter", () => {
 			}
 		});
 
-		it("不正なJSONの場合はエラーを返す", () => {
+		it("不正なJSONの場合は空配列にリセットする", () => {
 			mockStorage.setItem("test:items", "invalid json");
 			const result = adapter.getAll("items");
-			expect(result.ok).toBe(false);
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.data).toEqual([]);
+			}
+			// ストレージからも削除されている
+			expect(mockStorage.getItem("test:items")).toBeNull();
+		});
+
+		it("配列でないJSON値の場合は空配列にリセットする", () => {
+			mockStorage.setItem("test:items", JSON.stringify({ id: "1", name: "object" }));
+			const result = adapter.getAll("items");
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.data).toEqual([]);
+			}
+			expect(mockStorage.getItem("test:items")).toBeNull();
+		});
+
+		it("文字列JSON値の場合は空配列にリセットする", () => {
+			mockStorage.setItem("test:items", JSON.stringify("just a string"));
+			const result = adapter.getAll("items");
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.data).toEqual([]);
+			}
 		});
 	});
 

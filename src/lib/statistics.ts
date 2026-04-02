@@ -45,6 +45,24 @@ export function stdDev(values: readonly number[]): number {
 	return Math.sqrt(variance(values));
 }
 
+/** 配列の最小値をループで計算（スプレッド構文のスタックオーバーフローを回避） */
+function minOf(values: readonly number[]): number {
+	let result = Number.POSITIVE_INFINITY;
+	for (const v of values) {
+		if (v < result) result = v;
+	}
+	return result;
+}
+
+/** 配列の最大値をループで計算（スプレッド構文のスタックオーバーフローを回避） */
+function maxOf(values: readonly number[]): number {
+	let result = Number.NEGATIVE_INFINITY;
+	for (const v of values) {
+		if (v > result) result = v;
+	}
+	return result;
+}
+
 /** ショットデータからクラブ別の飛距離リストを抽出 */
 export function groupDistancesByClub(shots: readonly Shot[]): ReadonlyMap<ClubType, readonly number[]> {
 	const map = new Map<ClubType, number[]>();
@@ -72,8 +90,8 @@ export function calculateClubStats(shots: readonly Shot[]): readonly DistanceSta
 			mean: mean(distances),
 			variance: variance(distances),
 			stdDev: stdDev(distances),
-			min: Math.min(...distances),
-			max: Math.max(...distances),
+			min: minOf(distances),
+			max: maxOf(distances),
 		});
 	}
 
