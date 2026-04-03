@@ -55,7 +55,11 @@ function App() {
 
 	const handleEndRound = useCallback(() => {
 		if (!round) return;
-		endRound(round.shots.length);
+		const err = endRound(round.shots.length);
+		if (err) {
+			setError(err);
+			return;
+		}
 		setIsRoundEnded(true);
 	}, [round, endRound]);
 

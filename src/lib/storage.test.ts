@@ -167,4 +167,47 @@ describe("LocalStorageAdapter", () => {
 			expect(result.ok).toBe(false);
 		});
 	});
+
+	describe("SecurityError 対策", () => {
+		it("getItem が SecurityError を投げても空配列を返す", () => {
+			Object.defineProperty(globalThis, "localStorage", {
+				value: {
+					...mockStorage,
+					getItem: () => {
+						throw new DOMException("SecurityError");
+					},
+				},
+				writable: true,
+				configurable: true,
+			});
+			const secureAdapter = new LocalStorageAdapter("test");
+			const result = secureAdapter.getAll("items");
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.data).toEqual([]);
+			}
+		});
+
+		it("removeItem が SecurityError を投げてもクラッシュしない", () => {
+			// 不正データを入れておく
+			mockStorage.setItem("test:items", "invalid json");
+			Object.defineProperty(globalThis, "localStorage", {
+				value: {
+					...mockStorage,
+					removeItem: () => {
+						throw new DOMException("SecurityError");
+					},
+				},
+				writable: true,
+				configurable: true,
+			});
+			const secureAdapter = new LocalStorageAdapter("test");
+			const result = secureAdapter.getAll("items");
+			// removeItem が失敗しても空配列で返る
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.data).toEqual([]);
+			}
+		});
+	});
 });
