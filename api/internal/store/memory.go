@@ -202,6 +202,7 @@ func (s *MemoryRoundStore) Count(_ context.Context) (int, error) {
 
 // MemoryCourseStore はインメモリのコースストア（モックデータ付き）。
 type MemoryCourseStore struct {
+	mu      sync.RWMutex
 	courses map[string]model.Course
 	order   []string
 }
@@ -246,6 +247,8 @@ func NewMemoryCourseStore() *MemoryCourseStore {
 }
 
 func (s *MemoryCourseStore) List(_ context.Context) ([]model.Course, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	result := make([]model.Course, 0, len(s.order))
 	for _, id := range s.order {
 		if course, ok := s.courses[id]; ok {
@@ -256,6 +259,8 @@ func (s *MemoryCourseStore) List(_ context.Context) ([]model.Course, error) {
 }
 
 func (s *MemoryCourseStore) GetByID(_ context.Context, id string) (model.Course, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	course, ok := s.courses[id]
 	if !ok {
 		return model.Course{}, fmt.Errorf("コースが見つかりません: %s", id)
