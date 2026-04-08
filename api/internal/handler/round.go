@@ -120,11 +120,41 @@ func (h *RoundHandler) createRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ShotsをshotStoreに同期するため退避し、roundStoreには保存しない
+	shotsToSync := round.Shots
+	round.Shots = nil
+
 	created, err := h.store.Create(r.Context(), round)
 	if err != nil {
 		respondError(w, http.StatusConflict, err.Error())
 		return
 	}
+
+	// リクエストに含まれるショットをshotStoreに同期
+	if h.shotStore != nil {
+		for _, shot := range shotsToSync {
+			shot.RoundID = created.ID
+			if _, syncErr := h.shotStore.Create(r.Context(), shot); syncErr != nil {
+				// 重複IDは無視（既にshotStoreに存在する場合）
+				continue
+			}
+		}
+	}
+
+	// レスポンスにはshotStoreのショットを反映
+	if h.shotStore != nil {
+		shots, shotErr := h.shotStore.ListByRound(r.Context(), created.ID)
+		if shotErr == nil {
+			if shots == nil {
+				shots = []model.Shot{}
+			}
+			created.Shots = shots
+		}
+	}
+	if created.Shots == nil {
+		created.Shots = []model.Shot{}
+	}
+
 	respondJSON(w, http.StatusCreated, created)
 }
 
@@ -147,11 +177,43 @@ func (h *RoundHandler) updateRound(w http.ResponseWriter, r *http.Request, id st
 		return
 	}
 
+	// ShotsをshotStoreに同期するため退避し、roundStoreには保存しない
+	shotsToSync := round.Shots
+	round.Shots = nil
+
 	updated, err := h.store.Update(r.Context(), round)
 	if err != nil {
 		respondError(w, http.StatusNotFound, err.Error())
 		return
 	}
+
+	// リクエストに含まれるショットをshotStoreに同期
+	if h.shotStore != nil {
+		for _, shot := range shotsToSync {
+			shot.RoundID = updated.ID
+			// 既存のショットは更新、新規は作成
+			if _, syncErr := h.shotStore.Update(r.Context(), shot); syncErr != nil {
+				if _, createErr := h.shotStore.Create(r.Context(), shot); createErr != nil {
+					continue
+				}
+			}
+		}
+	}
+
+	// レスポンスにはshotStoreのショットを反映
+	if h.shotStore != nil {
+		shots, shotErr := h.shotStore.ListByRound(r.Context(), updated.ID)
+		if shotErr == nil {
+			if shots == nil {
+				shots = []model.Shot{}
+			}
+			updated.Shots = shots
+		}
+	}
+	if updated.Shots == nil {
+		updated.Shots = []model.Shot{}
+	}
+
 	respondJSON(w, http.StatusOK, updated)
 }
 
