@@ -25,8 +25,14 @@ func (h *RecommendationHandler) HandleRecommend(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	limitRequestBody(w, r)
+
 	var req model.RecommendRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if isMaxBytesError(err) {
+			respondError(w, http.StatusRequestEntityTooLarge, "リクエストボディが大きすぎます")
+			return
+		}
 		respondError(w, http.StatusBadRequest, "リクエストボディのパースに失敗しました")
 		return
 	}

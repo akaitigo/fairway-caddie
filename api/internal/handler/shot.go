@@ -82,8 +82,14 @@ func (h *ShotHandler) getShot(w http.ResponseWriter, r *http.Request, id string)
 }
 
 func (h *ShotHandler) createShot(w http.ResponseWriter, r *http.Request) {
+	limitRequestBody(w, r)
+
 	var shot model.Shot
 	if err := json.NewDecoder(r.Body).Decode(&shot); err != nil {
+		if isMaxBytesError(err) {
+			respondError(w, http.StatusRequestEntityTooLarge, "リクエストボディが大きすぎます")
+			return
+		}
 		respondError(w, http.StatusBadRequest, "リクエストボディのパースに失敗しました")
 		return
 	}
@@ -102,8 +108,14 @@ func (h *ShotHandler) createShot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ShotHandler) updateShot(w http.ResponseWriter, r *http.Request, id string) {
+	limitRequestBody(w, r)
+
 	var shot model.Shot
 	if err := json.NewDecoder(r.Body).Decode(&shot); err != nil {
+		if isMaxBytesError(err) {
+			respondError(w, http.StatusRequestEntityTooLarge, "リクエストボディが大きすぎます")
+			return
+		}
 		respondError(w, http.StatusBadRequest, "リクエストボディのパースに失敗しました")
 		return
 	}
