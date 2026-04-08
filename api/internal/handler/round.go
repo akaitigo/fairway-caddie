@@ -103,8 +103,14 @@ func (h *RoundHandler) getRound(w http.ResponseWriter, r *http.Request, id strin
 }
 
 func (h *RoundHandler) createRound(w http.ResponseWriter, r *http.Request) {
+	limitRequestBody(w, r)
+
 	var round model.Round
 	if err := json.NewDecoder(r.Body).Decode(&round); err != nil {
+		if isMaxBytesError(err) {
+			respondError(w, http.StatusRequestEntityTooLarge, "リクエストボディが大きすぎます")
+			return
+		}
 		respondError(w, http.StatusBadRequest, "リクエストボディのパースに失敗しました")
 		return
 	}
@@ -123,8 +129,14 @@ func (h *RoundHandler) createRound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RoundHandler) updateRound(w http.ResponseWriter, r *http.Request, id string) {
+	limitRequestBody(w, r)
+
 	var round model.Round
 	if err := json.NewDecoder(r.Body).Decode(&round); err != nil {
+		if isMaxBytesError(err) {
+			respondError(w, http.StatusRequestEntityTooLarge, "リクエストボディが大きすぎます")
+			return
+		}
 		respondError(w, http.StatusBadRequest, "リクエストボディのパースに失敗しました")
 		return
 	}

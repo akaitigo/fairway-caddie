@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/ryusei/fairway-caddie/api/internal/handler"
@@ -562,4 +563,84 @@ func TestRoundHandler_ShotSync(t *testing.T) {
 	}
 
 	_ = roundStore // suppress unused
+}
+
+// oversizedJSONBody は制限超過のJSONボディを生成する。
+// 有効なJSON形式で1MB超のボディを作るため、巨大な文字列値を持つオブジェクトを構築する。
+func oversizedJSONBody() string {
+	// {"pad":"AAAA..."} 形式で 2MB 相当のJSONを構築
+	return `{"pad":"` + strings.Repeat("A", 2<<20) + `"}`
+}
+
+func TestMaxBytesReader_Shot(t *testing.T) {
+	h, _ := setupShotHandler()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/shots", strings.NewReader(oversizedJSONBody()))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleShots(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("POST /api/shots with oversized body status = %d, want %d", w.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
+func TestMaxBytesReader_Round(t *testing.T) {
+	h, _, _ := setupRoundHandler()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/rounds", strings.NewReader(oversizedJSONBody()))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleRounds(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("POST /api/rounds with oversized body status = %d, want %d", w.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
+func TestMaxBytesReader_Recommend(t *testing.T) {
+	engine := service.NewRecommendationService(5)
+	h := handler.NewRecommendationHandler(engine)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/recommend", strings.NewReader(oversizedJSONBody()))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleRecommend(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("POST /api/recommend with oversized body status = %d, want %d", w.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
+func TestMaxBytesReader_ShotUpdate(t *testing.T) {
+	h, s := setupShotHandler()
+	if _, err := s.Create(nil, validShot()); err != nil {
+		t.Fatalf("setup error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/api/shots/shot-1", strings.NewReader(oversizedJSONBody()))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleShotByID(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("PUT /api/shots/shot-1 with oversized body status = %d, want %d", w.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
+func TestMaxBytesReader_RoundUpdate(t *testing.T) {
+	h, s, _ := setupRoundHandler()
+	round := validRound()
+	if _, err := s.Create(nil, round); err != nil {
+		t.Fatalf("setup error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/api/rounds/round-1", strings.NewReader(oversizedJSONBody()))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleRoundByID(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("PUT /api/rounds/round-1 with oversized body status = %d, want %d", w.Code, http.StatusRequestEntityTooLarge)
+	}
 }
