@@ -1,5 +1,7 @@
 package model
 
+import "fmt"
+
 // DistanceStats はクラブ別飛距離統計結果。
 type DistanceStats struct {
 	ClubType ClubType `json:"clubType"`
@@ -29,4 +31,38 @@ type RecommendRequest struct {
 	Hazards         []Hazard   `json:"hazards"`
 	Shots           []Shot     `json:"shots"`
 	RoundCount      int        `json:"roundCount"`
+}
+
+// Validate はRecommendRequestのバリデーションを行う。
+func (r RecommendRequest) Validate() error {
+	if err := r.CurrentPosition.Validate(); err != nil {
+		return fmt.Errorf("現在位置が不正です: %w", err)
+	}
+	if err := r.TargetPosition.Validate(); err != nil {
+		return fmt.Errorf("ターゲット位置が不正です: %w", err)
+	}
+
+	for i, h := range r.Hazards {
+		if !IsValidHazardType(string(h.Type)) {
+			return fmt.Errorf("ハザード[%d]: 無効なハザード種別です: %s", i, h.Type)
+		}
+		if h.RadiusYards < 0 {
+			return fmt.Errorf("ハザード[%d]: 半径は0以上で指定してください", i)
+		}
+	}
+
+	for i, s := range r.Shots {
+		if !IsValidClubType(string(s.Club)) {
+			return fmt.Errorf("ショット[%d]: 無効なクラブ種別です: %s", i, s.Club)
+		}
+		if s.DistanceYards < 0 {
+			return fmt.Errorf("ショット[%d]: 飛距離は0以上で指定してください", i)
+		}
+	}
+
+	if r.RoundCount < 0 {
+		return fmt.Errorf("ラウンド数は0以上で指定してください")
+	}
+
+	return nil
 }

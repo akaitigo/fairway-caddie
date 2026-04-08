@@ -32,7 +32,7 @@ func main() {
 
 	// ハンドラ初期化
 	shotHandler := handler.NewShotHandler(shotStore)
-	roundHandler := handler.NewRoundHandler(roundStore)
+	roundHandler := handler.NewRoundHandler(roundStore, shotStore)
 	courseHandler := handler.NewCourseHandler(courseStore)
 	statsHandler := handler.NewStatsHandler(shotStore)
 	recommendHandler := handler.NewRecommendationHandler(recommendService)
@@ -43,7 +43,11 @@ func main() {
 	// ヘルスチェック
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, `{"error":"メソッドが許可されていません"}`, http.StatusMethodNotAllowed)
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			if _, err := w.Write([]byte(`{"error":"メソッドが許可されていません"}`)); err != nil {
+				log.Printf("ヘルスチェックエラーレスポンスの書き込みに失敗: %v", err)
+			}
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")

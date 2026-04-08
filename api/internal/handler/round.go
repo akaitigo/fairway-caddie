@@ -10,12 +10,13 @@ import (
 
 // RoundHandler はラウンドAPIのハンドラ。
 type RoundHandler struct {
-	store store.RoundStore
+	store     store.RoundStore
+	shotStore store.ShotStore
 }
 
 // NewRoundHandler は新しいRoundHandlerを作成する。
-func NewRoundHandler(s store.RoundStore) *RoundHandler {
-	return &RoundHandler{store: s}
+func NewRoundHandler(s store.RoundStore, ss store.ShotStore) *RoundHandler {
+	return &RoundHandler{store: s, shotStore: ss}
 }
 
 // HandleRounds は /api/rounds エンドポイントのハンドラ。
@@ -59,6 +60,22 @@ func (h *RoundHandler) listRounds(w http.ResponseWriter, r *http.Request) {
 	if rounds == nil {
 		rounds = []model.Round{}
 	}
+
+	// 各ラウンドにShotStoreのショットを同期する
+	if h.shotStore != nil {
+		for i, round := range rounds {
+			shots, shotErr := h.shotStore.ListByRound(r.Context(), round.ID)
+			if shotErr != nil {
+				respondError(w, http.StatusInternalServerError, "ショットの取得に失敗しました")
+				return
+			}
+			if shots == nil {
+				shots = []model.Shot{}
+			}
+			rounds[i].Shots = shots
+		}
+	}
+
 	respondJSON(w, http.StatusOK, rounds)
 }
 
@@ -68,6 +85,20 @@ func (h *RoundHandler) getRound(w http.ResponseWriter, r *http.Request, id strin
 		respondError(w, http.StatusNotFound, "ラウンドが見つかりません")
 		return
 	}
+
+	// ShotStoreからこのラウンドのショットを動的に取得して同期する
+	if h.shotStore != nil {
+		shots, shotErr := h.shotStore.ListByRound(r.Context(), id)
+		if shotErr != nil {
+			respondError(w, http.StatusInternalServerError, "ショットの取得に失敗しました")
+			return
+		}
+		if shots == nil {
+			shots = []model.Shot{}
+		}
+		round.Shots = shots
+	}
+
 	respondJSON(w, http.StatusOK, round)
 }
 
