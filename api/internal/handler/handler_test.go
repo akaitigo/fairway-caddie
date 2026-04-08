@@ -565,6 +565,91 @@ func TestRoundHandler_ShotSync(t *testing.T) {
 	_ = roundStore // suppress unused
 }
 
+func TestRoundHandler_CreateWithShotsSync(t *testing.T) {
+	h, _, shotStore := setupRoundHandler()
+
+	// ショット付きのラウンドを作成
+	shot := validShot()
+	round := validRound()
+	round.Shots = []model.Shot{shot}
+
+	body, marshalErr := json.Marshal(round)
+	if marshalErr != nil {
+		t.Fatalf("marshal error: %v", marshalErr)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/rounds", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleRounds(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("POST /api/rounds status = %d, want %d. Body: %s", w.Code, http.StatusCreated, w.Body.String())
+	}
+
+	// レスポンスにショットが含まれることを確認
+	var createdRound model.Round
+	if err := json.NewDecoder(w.Body).Decode(&createdRound); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	if len(createdRound.Shots) != 1 {
+		t.Errorf("expected 1 shot in created round response, got %d", len(createdRound.Shots))
+	}
+
+	// shotStoreにも同期されていることを確認
+	shots, err := shotStore.ListByRound(nil, round.ID)
+	if err != nil {
+		t.Fatalf("shotStore.ListByRound error: %v", err)
+	}
+	if len(shots) != 1 {
+		t.Errorf("expected 1 shot in shotStore, got %d", len(shots))
+	}
+}
+
+func TestRoundHandler_UpdateWithShotsSync(t *testing.T) {
+	h, roundStore, shotStore := setupRoundHandler()
+
+	// まずラウンドを作成（ショットなし）
+	round := validRound()
+	if _, err := roundStore.Create(nil, round); err != nil {
+		t.Fatalf("setup error: %v", err)
+	}
+
+	// ショット付きでPUT更新
+	shot := validShot()
+	round.Shots = []model.Shot{shot}
+
+	body, marshalErr := json.Marshal(round)
+	if marshalErr != nil {
+		t.Fatalf("marshal error: %v", marshalErr)
+	}
+	req := httptest.NewRequest(http.MethodPut, "/api/rounds/round-1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleRoundByID(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("PUT /api/rounds/round-1 status = %d, want %d. Body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	// レスポンスにショットが含まれることを確認
+	var updatedRound model.Round
+	if err := json.NewDecoder(w.Body).Decode(&updatedRound); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	if len(updatedRound.Shots) != 1 {
+		t.Errorf("expected 1 shot in updated round response, got %d", len(updatedRound.Shots))
+	}
+
+	// shotStoreにも同期されていることを確認
+	shots, err := shotStore.ListByRound(nil, round.ID)
+	if err != nil {
+		t.Fatalf("shotStore.ListByRound error: %v", err)
+	}
+	if len(shots) != 1 {
+		t.Errorf("expected 1 shot in shotStore, got %d", len(shots))
+	}
+}
+
 // oversizedJSONBody は制限超過のJSONボディを生成する。
 // 有効なJSON形式で1MB超のボディを作るため、巨大な文字列値を持つオブジェクトを構築する。
 func oversizedJSONBody() string {
