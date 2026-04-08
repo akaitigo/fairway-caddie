@@ -114,21 +114,35 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// goroutineからのエラーを受け取るチャネル
+	serverErr := make(chan error, 1)
+
 	go func() {
 		log.Printf("fairway-caddie API server starting on :%s", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("サーバーの起動に失敗しました: %v", err)
+			serverErr <- err
+			stop() // メインゴルーチンのctx.Done()を発火させる
 		}
 	}()
 
 	<-ctx.Done()
+
+	// goroutineからのエラーがあればログ出力
+	select {
+	case err := <-serverErr:
+		log.Printf("サーバーの起動に失敗しました: %v", err)
+		os.Exit(1)
+	default:
+	}
+
 	log.Println("シャットダウンシグナルを受信しました...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("サーバーのシャットダウンに失敗しました: %v", err)
+		log.Printf("サーバーのシャットダウンに失敗しました: %v", err)
+		os.Exit(1)
 	}
 	log.Println("サーバーを正常にシャットダウンしました")
 }
