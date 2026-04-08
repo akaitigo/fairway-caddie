@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ryusei/fairway-caddie/api/internal/handler"
 	"github.com/ryusei/fairway-caddie/api/internal/model"
@@ -41,11 +42,19 @@ func validShot() model.Shot {
 	}
 }
 
+func todayJST() string {
+	jst, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		panic("タイムゾーンの読み込みに失敗: " + err.Error())
+	}
+	return time.Now().In(jst).Format("2006-01-02")
+}
+
 func validRound() model.Round {
 	return model.Round{
 		ID:       "round-1",
 		CourseID: "mock-course-001",
-		Date:     "2025-06-01",
+		Date:     todayJST(),
 		Shots:    []model.Shot{},
 	}
 }
