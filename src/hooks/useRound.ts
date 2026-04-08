@@ -21,6 +21,35 @@ function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/** ショットの原点座標を決定する */
+function resolveOrigin(lastShotPosition: Coordinate | null, courseId: string, holeNumber: number): Coordinate | null {
+	if (lastShotPosition) return lastShotPosition;
+	return getTeePosition(courseId, holeNumber) ?? null;
+}
+
+/** ショットオブジェクトを構築する */
+function buildShot(
+	round: Round,
+	club: ClubType,
+	position: Coordinate,
+	origin: Coordinate | null,
+	holeNumber: number,
+	shotNumber: number,
+): Shot {
+	const distanceYards = origin ? euclideanDistanceYards(origin, position) : 0;
+	return {
+		id: generateId(),
+		roundId: round.id,
+		holeNumber,
+		shotNumber,
+		club,
+		position: origin ?? position,
+		landingPosition: position,
+		distanceYards: Math.round(distanceYards),
+		timestamp: new Date().toISOString(),
+	};
+}
+
 export interface UseRoundReturn {
 	readonly round: Round | null;
 	readonly selectedClub: ClubType | null;
@@ -65,37 +94,15 @@ export function useRound(): UseRoundReturn {
 
 			const shotNumber = round.shots.filter((s) => s.holeNumber === currentHole).length + 1;
 
-			// 飛距離: 前のショットの着弾位置からユークリッド距離で計算
-			// 最初のショットはティー位置から計算する
-			let origin = lastShotPosition;
-			if (!origin) {
-				const teePos = getTeePosition(round.courseId, currentHole);
-				if (teePos) {
-					origin = teePos;
-				}
-			}
+			const origin = resolveOrigin(lastShotPosition, round.courseId, currentHole);
 			const distanceYards = origin ? euclideanDistanceYards(origin, position) : 0;
 
 			const distanceError = validateDistance(distanceYards);
 			if (distanceError) return distanceError;
 
-			const shot: Shot = {
-				id: generateId(),
-				roundId: round.id,
-				holeNumber: currentHole,
-				shotNumber,
-				club: selectedClub,
-				position: origin ?? position,
-				landingPosition: position,
-				distanceYards: Math.round(distanceYards),
-				timestamp: new Date().toISOString(),
-			};
+			const shot = buildShot(round, selectedClub, position, origin, currentHole, shotNumber);
 
-			const updatedRound: Round = {
-				...round,
-				shots: [...round.shots, shot],
-			};
-			setRound(updatedRound);
+			setRound({ ...round, shots: [...round.shots, shot] });
 			setLastShotPosition(position);
 			return null;
 		},
