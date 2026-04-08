@@ -19,10 +19,11 @@ func setupShotHandler() (*handler.ShotHandler, *store.MemoryShotStore) {
 	return h, s
 }
 
-func setupRoundHandler() (*handler.RoundHandler, *store.MemoryRoundStore) {
+func setupRoundHandler() (*handler.RoundHandler, *store.MemoryRoundStore, *store.MemoryShotStore) {
 	s := store.NewMemoryRoundStore()
-	h := handler.NewRoundHandler(s)
-	return h, s
+	ss := store.NewMemoryShotStore()
+	h := handler.NewRoundHandler(s, ss)
+	return h, s, ss
 }
 
 func validShot() model.Shot {
@@ -224,7 +225,7 @@ func TestShotHandler_ListByRound(t *testing.T) {
 }
 
 func TestRoundHandler_CreateAndList(t *testing.T) {
-	h, _ := setupRoundHandler()
+	h, _, _ := setupRoundHandler()
 
 	body, marshalErr := json.Marshal(validRound())
 	if marshalErr != nil {
@@ -407,4 +408,158 @@ func TestRecommendationHandler(t *testing.T) {
 			t.Errorf("POST /api/recommend with invalid coordinate status = %d, want %d", w.Code, http.StatusBadRequest)
 		}
 	})
+
+	t.Run("不正なクラブ種別のショット", func(t *testing.T) {
+		invalidReq := model.RecommendRequest{
+			CurrentPosition: model.Coordinate{Lat: 75, Lng: 0},
+			TargetPosition:  model.Coordinate{Lat: 75, Lng: 230},
+			Hazards:         []model.Hazard{},
+			Shots: []model.Shot{
+				{
+					ID:              "shot-1",
+					RoundID:         "round-1",
+					HoleNumber:      1,
+					ShotNumber:      1,
+					Club:            "invalid-club",
+					Position:        model.Coordinate{Lat: 75, Lng: 0},
+					LandingPosition: model.Coordinate{Lat: 75, Lng: 230},
+					DistanceYards:   230,
+					Timestamp:       "2026-01-01T00:00:00Z",
+				},
+			},
+		}
+		invalidBody, marshalErr := json.Marshal(invalidReq)
+		if marshalErr != nil {
+			t.Fatalf("marshal error: %v", marshalErr)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/api/recommend", bytes.NewReader(invalidBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.HandleRecommend(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("POST /api/recommend with invalid club status = %d, want %d", w.Code, http.StatusBadRequest)
+		}
+	})
+
+	t.Run("負の飛距離のショット", func(t *testing.T) {
+		invalidReq := model.RecommendRequest{
+			CurrentPosition: model.Coordinate{Lat: 75, Lng: 0},
+			TargetPosition:  model.Coordinate{Lat: 75, Lng: 230},
+			Hazards:         []model.Hazard{},
+			Shots: []model.Shot{
+				{
+					ID:              "shot-1",
+					RoundID:         "round-1",
+					HoleNumber:      1,
+					ShotNumber:      1,
+					Club:            model.ClubDriver,
+					Position:        model.Coordinate{Lat: 75, Lng: 0},
+					LandingPosition: model.Coordinate{Lat: 75, Lng: 230},
+					DistanceYards:   -10,
+					Timestamp:       "2026-01-01T00:00:00Z",
+				},
+			},
+		}
+		invalidBody, marshalErr := json.Marshal(invalidReq)
+		if marshalErr != nil {
+			t.Fatalf("marshal error: %v", marshalErr)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/api/recommend", bytes.NewReader(invalidBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.HandleRecommend(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("POST /api/recommend with negative distance status = %d, want %d", w.Code, http.StatusBadRequest)
+		}
+	})
+
+	t.Run("不正なハザード種別", func(t *testing.T) {
+		invalidReq := model.RecommendRequest{
+			CurrentPosition: model.Coordinate{Lat: 75, Lng: 0},
+			TargetPosition:  model.Coordinate{Lat: 75, Lng: 230},
+			Hazards: []model.Hazard{
+				{
+					ID:          "h-1",
+					Type:        "invalid-hazard",
+					Position:    model.Coordinate{Lat: 75, Lng: 100},
+					RadiusYards: 10,
+				},
+			},
+			Shots: []model.Shot{},
+		}
+		invalidBody, marshalErr := json.Marshal(invalidReq)
+		if marshalErr != nil {
+			t.Fatalf("marshal error: %v", marshalErr)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/api/recommend", bytes.NewReader(invalidBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.HandleRecommend(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("POST /api/recommend with invalid hazard type status = %d, want %d", w.Code, http.StatusBadRequest)
+		}
+	})
+}
+
+func TestRoundHandler_ShotSync(t *testing.T) {
+	h, roundStore, shotStore := setupRoundHandler()
+
+	// ラウンドを作成
+	round := validRound()
+	body, marshalErr := json.Marshal(round)
+	if marshalErr != nil {
+		t.Fatalf("marshal error: %v", marshalErr)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/rounds", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.HandleRounds(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("POST /api/rounds status = %d, want %d. Body: %s", w.Code, http.StatusCreated, w.Body.String())
+	}
+
+	// ShotStoreにショットを直接追加
+	shot := validShot()
+	if _, err := shotStore.Create(nil, shot); err != nil {
+		t.Fatalf("create shot error: %v", err)
+	}
+
+	// GET /api/rounds/round-1 でショットが含まれることを確認
+	req = httptest.NewRequest(http.MethodGet, "/api/rounds/round-1", nil)
+	w = httptest.NewRecorder()
+	h.HandleRoundByID(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /api/rounds/round-1 status = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	var gotRound model.Round
+	if err := json.NewDecoder(w.Body).Decode(&gotRound); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	if len(gotRound.Shots) != 1 {
+		t.Errorf("expected 1 shot in round, got %d", len(gotRound.Shots))
+	}
+
+	// GET /api/rounds（一覧）でもショットが含まれることを確認
+	req = httptest.NewRequest(http.MethodGet, "/api/rounds", nil)
+	w = httptest.NewRecorder()
+	h.HandleRounds(w, req)
+
+	var rounds []model.Round
+	if err := json.NewDecoder(w.Body).Decode(&rounds); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	if len(rounds) != 1 {
+		t.Fatalf("expected 1 round, got %d", len(rounds))
+	}
+	if len(rounds[0].Shots) != 1 {
+		t.Errorf("expected 1 shot in listed round, got %d", len(rounds[0].Shots))
+	}
+
+	_ = roundStore // suppress unused
 }

@@ -31,20 +31,16 @@ func (h *RecommendationHandler) HandleRecommend(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if err := req.CurrentPosition.Validate(); err != nil {
-		respondError(w, http.StatusBadRequest, "現在位置が不正です: "+err.Error())
-		return
-	}
-	if err := req.TargetPosition.Validate(); err != nil {
-		respondError(w, http.StatusBadRequest, "ターゲット位置が不正です: "+err.Error())
-		return
-	}
-
 	if req.Hazards == nil {
 		req.Hazards = []model.Hazard{}
 	}
 	if req.Shots == nil {
 		req.Shots = []model.Shot{}
+	}
+
+	if err := req.Validate(); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	recommendations := h.engine.Recommend(

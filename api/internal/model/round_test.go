@@ -14,9 +14,12 @@ func TestValidateRoundDate(t *testing.T) {
 	}{
 		{"有効な日付 (YYYY-MM-DD)", "2025-01-01", false},
 		{"有効な日付 (ISO8601)", "2025-01-01T00:00:00Z", false},
+		{"有効な日付 (ISO8601 JST)", "2025-01-01T09:00:00+09:00", false},
 		{"未来日", "2099-12-31T00:00:00Z", true},
 		{"不正な形式", "not-a-date", true},
 		{"空文字", "", true},
+		// UTC midnight = JST 翌日の場合でも日付部分で判定する
+		{"今日のUTC midnight", "2025-06-01T00:00:00Z", false},
 	}
 
 	for _, tt := range tests {
