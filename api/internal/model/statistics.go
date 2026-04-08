@@ -58,6 +58,21 @@ func (r RecommendRequest) Validate() error {
 		if s.DistanceYards < 0 {
 			return fmt.Errorf("ショット[%d]: 飛距離は0以上で指定してください", i)
 		}
+		if s.DistanceYards > 400 {
+			return fmt.Errorf("ショット[%d]: 飛距離は400ヤード以下で指定してください", i)
+		}
+		if s.HoleNumber < 1 || s.HoleNumber > 18 {
+			return fmt.Errorf("ショット[%d]: ホール番号は1~18の範囲で指定してください", i)
+		}
+		if s.Timestamp == "" {
+			return fmt.Errorf("ショット[%d]: タイムスタンプは必須です", i)
+		}
+		if err := s.Position.Validate(); err != nil {
+			return fmt.Errorf("ショット[%d]: 打点座標が不正です: %w", i, err)
+		}
+		if err := s.LandingPosition.Validate(); err != nil {
+			return fmt.Errorf("ショット[%d]: 着弾座標が不正です: %w", i, err)
+		}
 	}
 
 	if r.RoundCount < 0 {
