@@ -1,4 +1,4 @@
-.PHONY: build test lint format typecheck check clean install deps-check test-e2e quality
+.PHONY: build test lint format typecheck check clean install deps-check test-e2e quality api-build api-test api-run api-check
 
 install:
 	npm install
@@ -19,11 +19,24 @@ format:
 typecheck:
 	npx tsc --noEmit
 
-check: format lint typecheck test build
+check: format lint typecheck test build api-check
 	@echo "All checks passed."
 
 test-e2e:
 	npx playwright test
+
+# Go API
+api-build:
+	cd api && go build ./...
+
+api-test:
+	cd api && go test -race -count=1 ./...
+
+api-run:
+	cd api && go run ./cmd/server
+
+api-check: api-build api-test
+	@echo "Go API checks passed."
 
 quality:
 	@echo "=== Quality Gate ==="
