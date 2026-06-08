@@ -20,7 +20,7 @@
 		"@biomejs/biome": "^2.4.16",
 		"@playwright/test": "^1.60.0",
 		"@types/d3": "^7.4.0",
-		"@types/react": "^19.2.15",
+		"@types/react": "^19.2.17",
 		"@types/react-dom": "^19.0.0",
 		"@vitejs/plugin-react": "^6.0.2",
 		"@vitest/coverage-v8": "^2.1.0",
@@ -31,7 +31,7 @@
 	},
 	"dependencies": {
 		"d3": "^7.9.0",
-		"react": "^19.2.5",
+		"react": "^19.2.7",
 		"react-dom": "^19.2.6"
 	},
 	"engines": {
