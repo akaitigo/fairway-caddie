@@ -27,7 +27,7 @@
 		"oxlint": "^1.86.0",
 		"typescript": "^6.0.3",
 		"vite": "^8.3.2",
-		"vitest": "^4.1.11"
+		"vitest": "^5.0.3"
 	},
 	"dependencies": {
 		"d3": "^7.9.0",
